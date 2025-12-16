@@ -35,25 +35,17 @@ The system follows a **Microservices** architecture:
 
 ### Steps
 
-1.  **Start Infrastructure**:
+1.  **Start Everything**:
+    Since you have Docker, you can run the entire stack (API, Worker, DB, Queue) with one command:
     ```bash
-    docker-compose up -d
+    docker-compose up -d --build
     ```
 
-2.  **Run the API**:
-    ```bash
-    dotnet run --project MicroNetflix.Api
-    ```
-
-3.  **Run the Worker** (in a new terminal):
-    ```bash
-    dotnet run --project MicroNetflix.Worker
-    ```
-
-4.  **Test it**:
+2.  **Test it**:
+    *   The API will be available at `http://localhost:5000`
     *   Open Swagger: `http://localhost:5000/swagger`
     *   Upload a video file.
-    *   Watch the Worker logs to see it processing!
+    *   Watch the Worker logs: `docker-compose logs -f worker`
 
 ## 🧪 Verification
 
