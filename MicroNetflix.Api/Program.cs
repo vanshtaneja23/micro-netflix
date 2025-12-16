@@ -102,10 +102,18 @@ app.MapPost("/videos/upload", async (IFormFile file, IMinioClient minio, VideoDb
 .WithName("UploadVideo")
 .WithOpenApi();
 
-app.MapGet("/videos/{id}", (Guid id) =>
+app.MapGet("/videos/{id}", async (Guid id, VideoDbContext db) =>
 {
-    // TODO: Implement status check
-    return Results.Ok(new { Id = id, Status = "Processing" });
+    var video = await db.Videos.FindAsync(id);
+    if (video == null) return Results.NotFound();
+    
+    return Results.Ok(new 
+    { 
+        video.Id, 
+        video.Status, 
+        video.OriginalFileName, 
+        video.UploadedAt 
+    });
 })
 .WithName("GetVideoStatus")
 .WithOpenApi();
