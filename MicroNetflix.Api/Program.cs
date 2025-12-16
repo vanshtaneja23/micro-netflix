@@ -1,4 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using MassTransit;
+using MicroNetflix.Api;
+using MicroNetflix.Shared;
+using Minio;
+using Minio.DataModel.Args;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,12 +52,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-using MassTransit;
-using MicroNetflix.Api;
-using MicroNetflix.Shared;
-using Minio;
-using Minio.DataModel.Args;
 
 app.MapPost("/videos/upload", async (IFormFile file, IMinioClient minio, VideoDbContext db, IPublishEndpoint publishEndpoint) =>
 {
