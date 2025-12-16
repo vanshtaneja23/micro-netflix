@@ -48,10 +48,56 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapPost("/videos/upload", async (IFormFile file) =>
+using MassTransit;
+using MicroNetflix.Api;
+using MicroNetflix.Shared;
+using Minio;
+using Minio.DataModel.Args;
+
+app.MapPost("/videos/upload", async (IFormFile file, IMinioClient minio, VideoDbContext db, IPublishEndpoint publishEndpoint) =>
 {
-    // TODO: Implement upload logic
-    return Results.Ok(new { Message = "Video uploaded successfully" });
+    if (file.Length == 0) return Results.BadRequest("Empty file");
+
+    var videoId = Guid.NewGuid();
+    var fileName = $"{videoId}{Path.GetExtension(file.FileName)}";
+
+    // 1. Upload to MinIO
+    using var stream = file.OpenReadStream();
+    var putObjectArgs = new PutObjectArgs()
+        .WithBucket("videos")
+        .WithObject(fileName)
+        .WithStreamData(stream)
+        .WithObjectSize(stream.Length)
+        .WithContentType(file.ContentType);
+    
+    // Ensure bucket exists
+    var beArgs = new BucketExistsArgs().WithBucket("videos");
+    bool found = await minio.BucketExistsAsync(beArgs);
+    if (!found)
+    {
+        var mbArgs = new MakeBucketArgs().WithBucket("videos");
+        await minio.MakeBucketAsync(mbArgs);
+    }
+
+    await minio.PutObjectAsync(putObjectArgs);
+
+    // 2. Save Metadata
+    var video = new VideoMetadata
+    {
+        Id = videoId,
+        OriginalFileName = file.FileName,
+        StoredFileName = fileName,
+        UploadedAt = DateTime.UtcNow,
+        Status = "Pending"
+    };
+
+    db.Videos.Add(video);
+    await db.SaveChangesAsync();
+
+    // 3. Publish Event
+    await publishEndpoint.Publish(new VideoUploadedEvent(videoId, fileName));
+
+    return Results.Ok(new { Id = videoId, Status = "Uploaded", Message = "Processing started" });
 })
 .WithName("UploadVideo")
 .WithOpenApi();
