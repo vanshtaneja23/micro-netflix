@@ -1,6 +1,31 @@
 version: '3.8'
 
 services:
+  api:
+    build:
+      context: .
+      dockerfile: MicroNetflix.Api/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=micronetflix;Username=admin;Password=password
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      - postgres
+      - rabbitmq
+      - minio
+
+  worker:
+    build:
+      context: .
+      dockerfile: MicroNetflix.Worker/Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=micronetflix;Username=admin;Password=password
+    depends_on:
+      - postgres
+      - rabbitmq
+      - minio
+
   postgres:
     image: postgres:15-alpine
     environment:
