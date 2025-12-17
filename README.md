@@ -2,9 +2,6 @@
 
 A distributed video streaming platform built with **.NET 8**, **Microservices**, and **Event-Driven Architecture**.
 
-![Micro-Netflix Demo]
-
-
 ## 🚀 Features
 *   **Microservices Architecture**: Separate API, Worker, and Frontend services.
 *   **Event-Driven**: Uses **RabbitMQ** for asynchronous communication.
