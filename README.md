@@ -64,4 +64,4 @@ The system consists of the following containers:
 This project is containerized and ready for deployment on platforms like **Render**, **AWS**, or **Azure**.
 
 ---
-*Built with ❤️ by Vansh Taneja*
+*Built by Vansh Taneja*
