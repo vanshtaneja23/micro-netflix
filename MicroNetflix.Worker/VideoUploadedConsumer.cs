@@ -2,6 +2,8 @@ using MassTransit;
 using MicroNetflix.Shared;
 using Minio;
 using Minio.DataModel.Args;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MicroNetflix.Worker;
 
@@ -9,11 +11,13 @@ public class VideoUploadedConsumer : IConsumer<VideoUploadedEvent>
 {
     private readonly ILogger<VideoUploadedConsumer> _logger;
     private readonly IMinioClient _minio;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public VideoUploadedConsumer(ILogger<VideoUploadedConsumer> logger, IMinioClient minio)
+    public VideoUploadedConsumer(ILogger<VideoUploadedConsumer> logger, IMinioClient minio, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _minio = minio;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task Consume(ConsumeContext<VideoUploadedEvent> context)
@@ -52,6 +56,20 @@ public class VideoUploadedConsumer : IConsumer<VideoUploadedEvent>
             await _minio.PutObjectAsync(putObjectArgs);
 
             _logger.LogInformation("Processing completed. Saved as {ProcessedFileName}", processedFileName);
+
+            // 4. Update Database
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<VideoDbContext>();
+                var video = await db.Videos.FindAsync(videoId);
+                if (video != null)
+                {
+                    video.Status = "Completed";
+                    video.StoredFileName = processedFileName; // Optional: update filename
+                    await db.SaveChangesAsync();
+                    _logger.LogInformation("Database updated for Video: {VideoId}", videoId);
+                }
+            }
         }
         catch (Exception ex)
         {

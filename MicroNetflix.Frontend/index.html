@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro-Netflix</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="logo">MICRO-NETFLIX</h1>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <h2>Upload New Content</h2>
+                <div class="upload-box" id="dropZone">
+                    <p>Drag & drop your video here</p>
+                    <input type="file" id="fileInput" accept="video/*" hidden>
+                    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
+                </div>
+                <div id="uploadStatus" class="status-message"></div>
+            </section>
+
+            <section class="library-section">
+                <h2>Your Library</h2>
+                <div class="video-grid" id="videoGrid">
+                    <!-- Videos will appear here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <video id="videoPlayer" controls width="100%">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

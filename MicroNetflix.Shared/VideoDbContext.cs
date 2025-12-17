@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using MicroNetflix.Shared;
 
-namespace MicroNetflix.Api;
+namespace MicroNetflix.Shared;
 
 public class VideoDbContext : DbContext
 {

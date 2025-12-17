@@ -1,0 +1,99 @@
+services:
+  # 1. Database (PostgreSQL)
+  - type: pserv
+    name: micronetflix-db
+    env: docker
+    plan: free
+    envVars:
+      - key: POSTGRES_USER
+        value: admin
+      - key: POSTGRES_PASSWORD
+        value: password
+      - key: POSTGRES_DB
+        value: micronetflix
+
+  # 2. Message Queue (RabbitMQ)
+  # Note: Render doesn't have a managed RabbitMQ in the free tier easily.
+  # We might need to use an external provider like CloudAMQP or run a custom docker image.
+  # For simplicity in this blueprint, we'll try running the docker image, but persistent storage might be an issue on free tier.
+  - type: pserv
+    name: micronetflix-rabbitmq
+    env: docker
+    image: rabbitmq:3-management-alpine
+    plan: free
+    envVars:
+      - key: RABBITMQ_DEFAULT_USER
+        value: guest
+      - key: RABBITMQ_DEFAULT_PASS
+        value: guest
+
+  # 3. Storage (MinIO)
+  # Similar to RabbitMQ, running MinIO on Render free tier is tricky due to storage.
+  # Ideally, use AWS S3 or R2. For this demo, we will try the docker image.
+  - type: pserv
+    name: micronetflix-minio
+    env: docker
+    image: minio/minio
+    dockerCommand: server /data --console-address ":9001"
+    plan: free
+    envVars:
+      - key: MINIO_ROOT_USER
+        value: minioadmin
+      - key: MINIO_ROOT_PASSWORD
+        value: minioadmin
+
+  # 4. API
+  - type: web
+    name: micronetflix-api
+    env: docker
+    dockerContext: .
+    dockerfilePath: MicroNetflix.Api/Dockerfile
+    plan: free
+    envVars:
+      - key: ConnectionStrings__DefaultConnection
+        fromService:
+          type: pserv
+          name: micronetflix-db
+          property: connectionString
+      - key: RabbitMq__Host
+        fromService:
+          type: pserv
+          name: micronetflix-rabbitmq
+          property: host
+      - key: Minio__Endpoint
+        fromService:
+          type: pserv
+          name: micronetflix-minio
+          property: host
+
+  # 5. Worker
+  - type: worker
+    name: micronetflix-worker
+    env: docker
+    dockerContext: .
+    dockerfilePath: MicroNetflix.Worker/Dockerfile
+    plan: free
+    envVars:
+      - key: ConnectionStrings__DefaultConnection
+        fromService:
+          type: pserv
+          name: micronetflix-db
+          property: connectionString
+      - key: RabbitMq__Host
+        fromService:
+          type: pserv
+          name: micronetflix-rabbitmq
+          property: host
+      - key: Minio__Endpoint
+        fromService:
+          type: pserv
+          name: micronetflix-minio
+          property: host
+
+  # 6. Frontend
+  - type: web
+    name: micronetflix-frontend
+    env: docker
+    dockerContext: MicroNetflix.Frontend
+    dockerfilePath: Dockerfile
+    plan: free

@@ -1,15 +1,23 @@
 using Microsoft.AspNetCore.Mvc;
 using MassTransit;
-using MicroNetflix.Api;
 using MicroNetflix.Shared;
 using Minio;
 using Minio.DataModel.Args;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddAntiforgery();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder => builder.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader());
+});
 
 // Database
 builder.Services.AddDbContext<VideoDbContext>(options =>
@@ -20,7 +28,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host("localhost", "/", h =>
+        cfg.Host(builder.Configuration["RabbitMq:Host"] ?? "rabbitmq", "/", h =>
         {
             h.Username("guest");
             h.Password("guest");
@@ -30,7 +38,7 @@ builder.Services.AddMassTransit(x =>
 
 // Storage
 builder.Services.AddMinio(configureClient => configureClient
-    .WithEndpoint("localhost", 9000)
+    .WithEndpoint(builder.Configuration["Minio:Endpoint"] ?? "minio", 9000)
     .WithCredentials("minioadmin", "minioadmin")
     .WithSSL(false)
     .Build());
@@ -52,6 +60,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+app.UseAntiforgery();
 
 app.MapPost("/videos/upload", async (IFormFile file, IMinioClient minio, VideoDbContext db, IPublishEndpoint publishEndpoint) =>
 {
@@ -99,7 +109,8 @@ app.MapPost("/videos/upload", async (IFormFile file, IMinioClient minio, VideoDb
     return Results.Ok(new { Id = videoId, Status = "Uploaded", Message = "Processing started" });
 })
 .WithName("UploadVideo")
-.WithOpenApi();
+.WithOpenApi()
+.DisableAntiforgery();
 
 app.MapGet("/videos/{id}", async (Guid id, VideoDbContext db) =>
 {
@@ -115,6 +126,30 @@ app.MapGet("/videos/{id}", async (Guid id, VideoDbContext db) =>
     });
 })
 .WithName("GetVideoStatus")
+.WithOpenApi();
+
+app.MapGet("/videos/{id}/stream", async (Guid id, VideoDbContext db, IMinioClient minio) =>
+{
+    var video = await db.Videos.FindAsync(id);
+    if (video == null) return Results.NotFound();
+    if (video.Status != "Completed") return Results.BadRequest("Video not ready");
+
+    // Get the stream from MinIO
+    // Note: In a real app, we might generate a presigned URL. 
+    // For this demo, we'll proxy the stream.
+    
+    var memoryStream = new MemoryStream();
+    var getObjectArgs = new GetObjectArgs()
+        .WithBucket("videos")
+        .WithObject(video.StoredFileName)
+        .WithCallbackStream(stream => stream.CopyTo(memoryStream));
+    
+    await minio.GetObjectAsync(getObjectArgs);
+    memoryStream.Position = 0;
+
+    return Results.File(memoryStream, "video/mp4", enableRangeProcessing: true);
+})
+.WithName("StreamVideo")
 .WithOpenApi();
 
 app.Run();

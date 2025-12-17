@@ -1,15 +1,21 @@
 using MassTransit;
 using MicroNetflix.Worker;
 using Minio;
+using Microsoft.EntityFrameworkCore;
+using MicroNetflix.Shared;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // Storage
 builder.Services.AddMinio(configureClient => configureClient
-    .WithEndpoint("localhost", 9000)
+    .WithEndpoint(builder.Configuration["Minio:Endpoint"] ?? "minio", 9000)
     .WithCredentials("minioadmin", "minioadmin")
     .WithSSL(false)
     .Build());
+
+// Database
+builder.Services.AddDbContext<VideoDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Message Bus
 builder.Services.AddMassTransit(x =>
@@ -18,7 +24,7 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host("localhost", "/", h =>
+        cfg.Host(builder.Configuration["RabbitMq:Host"] ?? "rabbitmq", "/", h =>
         {
             h.Username("guest");
             h.Password("guest");
